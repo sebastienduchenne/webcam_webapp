@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Webcam webapp</title>
+  <meta charset="utf-8">
+
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+
+  <style>
+    body {
+      font: 14px "Open Sans", "Arial", sans-serif;
+    }
+    
+    video {
+      margin-top: 2px;
+      border: 1px solid black;
+    }
+    
+  </style>
+  
+</head>
+<body>
+
+  <div style="margin-bottom: 50px;">
+    email : prenom.nom@capgemini.com
+    age : X
+    sexe : X
+  </div>
+
+  <div>
+
+    <div style="width: 50%; position: absolute;">
+      <p><u>Emotion à jouer :</u> <span id="emotion" style="color:red"></span></p>
+      <p><u>Contexte :</u> <span id="contexte"></span></p>
+      <p><u>Texte à jouer :</u></p>
+      <p id="texte" style="padding-left: 20px;"></p>
+    </div>
+
+
+    <div style="margin-left: 50%;">
+      <div>
+        <button id="startWCButton">Démarrer la webcam</button>
+        <button id="stopWCButton">Stopper la webcam</button>
+      </div>
+      
+      <div id="prev">
+        <div><video id="preview" width="320" height="240" autoplay muted></video></div>
+        <button id="recordButton" disabled>Enregistrer</button>
+        <button id="stopButton" disabled>Stop</button>
+
+        <div id="msg" style="display: none;">
+          <img src="./recording.gif" style="height: 50px;">
+          Enregistrement en cours
+        </div>
+      </div>
+
+      <div id="rec" style="display: none;">
+        <video id="recording" width="320" height="240" controls></video>
+        <br>
+        <button id="re">Refaire</button>
+        <a id="downloadButton"><button>Download</button></a>
+        <button id="next">Texte suivant</button>
+      </div>
+
+    </div>
+
+
+    <pre id="log"></pre>
+
+  </div>
+
+  <script>
+
+    let preview = document.getElementById("preview");
+    let startWCButton = document.getElementById("startWCButton");
+    let stopWCButton = document.getElementById("stopWCButton");
+    let recording = document.getElementById("recording");
+    let recordButton = document.getElementById("recordButton");
+    let stopButton = document.getElementById("stopButton");
+    let downloadButton = document.getElementById("downloadButton");
+    let logElement = document.getElementById("log");
+    let re = document.getElementById("re");
+    let next = document.getElementById("next");
+
+    let data = [];
+    let recorder;
+    let title = "toto";
+    let nav;
+    let recordedBlob;
+
+    let emotion = "x";
+    let sexe = "x";
+    let age = "x";
+    let id_texte = "x";
+
+    let current_id = 1
+    let textes = {
+      "1":{
+        emotion: "colère",
+        contexte:"Avis film Star Wars 9",
+        texte:"C'était affligeant, consternant, et interminable. Disney bat tous les records de nullité avec ce dernier opus."
+      },
+      "2":{
+        emotion: "colère",
+        contexte:"Réplique film 'Die Hard'",
+        texte:"Sans blagues, et vous croyez que j’appelle pour commander une pizza"
+      }
+    }
+
+    function texteSuivant(){
+      document.getElementById("emotion").innerHTML = textes[current_id].emotion
+      document.getElementById("contexte").innerHTML = textes[current_id].contexte
+      document.getElementById("texte").innerHTML = textes[current_id].texte
+      current_id++;
+    }
+
+    function log(msg) {
+      logElement.innerHTML += msg + "\n";
+    }
+
+    function startRecording(stream) {
+      data = []
+      recorder = new MediaRecorder(stream);
+      recorder.ondataavailable = event => data.push(event.data);
+      recorder.start();
+    
+      new Promise((resolve, reject) => {
+        recorder.onstop = resolve;
+        recorder.onerror = event => reject(event.name);
+      })
+      .then(function(){
+        recordedBlob = new Blob(data, { type: "video/webm" });
+        recording.src = URL.createObjectURL(recordedBlob);
+        downloadButton.href = recording.src;
+        title = id_texte + "_" + emotion
+        downloadButton.download = title + ".webm";
+      })
+    }
+
+
+    recordButton.addEventListener("click", function() {
+      stopButton.disabled = false;
+      recordButton.disabled = true;
+
+      document.getElementById("msg").style.display = "block";
+      nav.then(() => startRecording(preview.captureStream()))
+      .catch(log);
+    }, false);
+
+    stopButton.addEventListener("click", function() {
+      stopButton.disabled = true;
+      recordButton.disabled = false;
+
+      document.getElementById("prev").style.display = "none";
+      document.getElementById("rec").style.display = "block";
+      document.getElementById("msg").style.display = "none";
+
+      recorder.stop()
+
+    }, false);
+
+    startWCButton.addEventListener("click", function() {
+      texteSuivant()
+      recordButton.disabled = false;
+      startWCButton.disabled = true;
+
+      nav = navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: true
+      }).then(stream => {
+        preview.srcObject = stream;
+        downloadButton.href = stream;
+        preview.captureStream = preview.captureStream || preview.mozCaptureStream;
+        return new Promise(resolve => preview.onplaying = resolve);
+      })
+    }, false);
+
+    re.addEventListener("click", function() {
+      document.getElementById("prev").style.display = "block";
+      document.getElementById("rec").style.display = "none";
+      stopButton.disabled = true;
+      recordButton.disabled = false;
+    }, false);
+
+    next.addEventListener("click", function() {
+      texteSuivant();
+      document.getElementById("prev").style.display = "block";
+      document.getElementById("rec").style.display = "none";
+      stopButton.disabled = true;
+      recordButton.disabled = false;
+    }, false);
+
+    stopWCButton.addEventListener("click", function() {
+      preview.srcObject.getTracks().forEach(track => track.stop());
+      startWCButton.disabled = false;
+      stopWCButton.disabled = true;
+      data = []
+    }, false);
+
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Titre</title>
+  <meta charset="utf-8">
+
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+
+  <style>
+    body {
+      font-family: "Arial";
+      font-size: 14px;
+    }
+
+    #no_account {
+      position: absolute;
+      width: 35%;
+    }
+
+    #account {
+      margin-left: 50%;
+    }
+
+    .error {
+      color: red
+    }
+
+    #page {
+      width: 80%;
+      margin-left: auto;
+      margin-right: auto;
+      text-align: center;
+    }
+
+  </style>
+  
+</head>
+<body>
+
+  <div id="page">
+
+    <div id="no_account">
+      <h3>Je n'ai pas de compte.</h3>
+
+      <form action="http://localhost:5000/subscribe" method="post">
+        <p>
+          <label for="login">Login Capgemini :</label>
+          <input type="text" id="login" name="login" autocomplete="off" required>
+        </p>
+  
+        <p>
+          <label for="age">Age : </label>
+          <select id="age" name="age" required></select>
+        </p>
+  
+        <p>
+          <label for="sexe">Sexe : </label>
+          <select id="sexe" name="sexe" required>
+            <option value="">-- Veuillez sélectionner un sexe --</option>
+            <option value="H">H</option>
+            <option value="F">F</option>
+          </select>
+        </p>
+        <p class="button">
+          <button type="submit">S'inscrire</button>
+        </p>
+        <p id="error_subscribe" class="error"> {{ error_subscribe }}</p>
+      </form>
+
+    </div>
+
+    <div id="account">
+      <h3>J'ai un compte.</h3>
+
+      <form action="http://localhost:5000/connexion" method="post">
+        <p>
+          <label for="login">Login Capgemini :</label>
+          <input type="text" id="login" name="login" required autocomplete="off">
+        </p>
+        <p class="button">
+          <button type="submit">Se connecter</button>
+        </p>
+        <p id="error_connexion" class="error"> {{ error_connexion }}</p>
+      </form>
+    </div>
+
+  </div>
+
+  <script>
+
+    //compléter le select de age
+    let age = document.getElementById("age")
+    age.innerHTML = "<option value=''>-- Veuillez sélectionner un âge --</option>"
+    for(let i = 0; i <= 100; i++){
+      age.innerHTML += "<option value='" + i +"'>" + i + "</option>"
+    }
+
+  </script>
+
+</body>
+</html>

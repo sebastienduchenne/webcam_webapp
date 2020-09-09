@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Titre</title>
+  <meta charset="utf-8">
+
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+
+  <style>
+    body {
+      font-family: Arial;
+      font-size: 14px;
+    }
+
+    video {
+      margin-top: 2px;
+      border: 1px solid black;
+    }
+
+    #notice {
+      width: 38%;
+      position: absolute;
+    }
+
+    #emotion {
+      color:red
+    }
+
+    #scene_a_jouer {
+      width: 300px;
+      margin: 0 auto;
+    }
+
+    #scene, #fini {
+      margin-left: 40%;
+      width: 320px;
+      text-align: center;
+    }
+
+  </style>
+  
+</head>
+<body>
+
+  <div id="enregistrement">
+
+    <div id="notice">
+      <p>Login Capgemini : <span id="login">{{ login }}</span></p>
+      <p>Age : <span id="age">{{ age }}</span></p>
+      <p>Sexe : <span id="sexe">{{ sexe }}</span></p>
+
+      <div>
+        <p>
+          <b>Set up</b>
+          <ul>
+            <li>Utilisez Google Chrome</li>
+            <li>Appuyez sur F11 pour que le texte à jouer soit tout en haut</li>
+            <li>Votre visage doit être éclairé de manière homogène</li>
+            <li>Pas à contre jour</li>
+            <li>Pas de bruit parasite (ventilation, travaux, klaxon, ...)</li>
+          </ul>
+        </p>
+        <br>
+        <p>
+          <b>Comment jouer la scène</b>
+          <ul>
+            <li>Jouez à votre manière</li>
+            <li>N'hésitez pas à rejouer une scène si vous estimez qu'elle est mal jouée</li>
+            <li>L'application mémorise quelle est la dernière scène qui a été joué, vous permettant de reprendre plus tard là où vous vous en êtes arrété.</li>
+          </ul>
+        </p>
+      </div>
+    </div>
+
+    <div id="fini" style="display: none;">
+      <h2>Vous avez joué toutes les scènes.</h2>
+    </div>
+
+    <div id="scene">
+
+      <div>
+        <p><u>Scène à jouer <span id="compteur"></span> :</u>
+        <span id="scene_a_jouer" style="width: 300px; margin: 0 auto;"></span></p>
+        <p><u>Emotion à jouer :</u> <b><span id="emotion" style="color:red"></span></b></p>
+        <p><u>Contexte :</u> <span id="contexte"></span></p>
+        <br>
+      </div>
+  
+      <div>
+        <div id="msg"></div>
+
+        <div id="prev">
+          <button id="recordButton" onclick="record()" disabled>Enregistrer</button>
+          <button id="stopRecordButton" onclick="stop()" disabled>Stopper l'enregistrement</button>
+          <div><video id="preview" width="320" height="240" autoplay muted></video></div>
+        </div>
+  
+        <div id="rec" style="display: none;">
+          <button id="rejouerButton" onclick="rejouer()">Rejouer la scène</button>
+          <button id="nextButton" onclick="upload()">Uploader l'enregistrement</button>
+          <video id="recording" width="320" height="240" controls></video>
+        </div>
+
+        <div>
+          <button id="startWebcamButton" onclick="startWebcam()">Démarrer la webcam</button>
+          <button id="stopWebcamButton" onclick="stopWebcam()" disabled>Eteindre la webcam</button>
+        </div>
+  
+      </div>
+  
+      <pre id="log"></pre>
+  
+    </div>
+
+  </div>
+
+
+  <script>
+
+    let preview = document.getElementById("preview");
+    let startWebcamButton = document.getElementById("startWebcamButton");
+    let stopWebcamButton = document.getElementById("stopWebcamButton");
+    let recording = document.getElementById("recording");
+    let recordButton = document.getElementById("recordButton");
+    let stopRecordButton = document.getElementById("stopRecordButton");
+    let logElement = document.getElementById("log");
+    let rejouerButton = document.getElementById("rejouerButton");
+    let nextButton = document.getElementById("nextButton");
+
+    let data = [];
+    let recorder;
+    let nav;
+    let recordedBlob;
+
+    let login = document.getElementById("login").innerHTML;
+    let id_en_cours;
+
+
+    getScene()
+    function getScene(){
+      document.getElementById("prev").style.display = "block";
+      document.getElementById("rec").style.display = "none";
+      stopRecordButton.disabled = true;
+
+      let requestData = {
+        "login": login,
+      }
+
+      $.ajax({
+        type: 'POST',
+        url: 'http://localhost:5000/getScene',
+        data: JSON.stringify(requestData),
+        contentType: "application/json",
+        success: function(response) {
+          if(response.status === "FINI"){
+            document.getElementById("fini").style.display = "block"
+            document.getElementById("scene").style.display = "none"
+            stopWebcam()
+          } else {
+            id_en_cours = response.id_en_cours;
+            document.getElementById("emotion").innerHTML = response.emotion
+            document.getElementById("contexte").innerHTML = response.contexte
+            document.getElementById("scene_a_jouer").innerHTML = response.scene_a_jouer
+            document.getElementById("compteur").innerHTML = "("+response.id_en_cours + "/" + response.nb_max_scenes + ")"
+          }
+        }
+      });
+    }
+
+
+    function upload(){
+      let formData = new FormData();
+
+      formData.append("video", recordedBlob, id_en_cours + "_"+ login);
+
+      $.ajax({
+          type: 'POST',
+          url: 'http://localhost:5000/upload',
+          data: formData,
+          processData: false,  // prevent jQuery from converting the data
+          contentType: false,  // prevent jQuery from overriding content type
+          success: function(response) {
+              if(response.status === "success"){
+                console.log("success")
+                document.getElementById("msg").innerHTML = "L'enregistrement a été uploadé. Vous pouvez jouer la scène suivante."
+                getScene()
+              }
+          }
+      });
+    }
+
+
+    function log(msg) {
+      logElement.innerHTML += msg + "\n";
+    }
+
+    function startRecording(stream) {
+      data = [];
+      recordedBlob = null;
+
+      recorder = new MediaRecorder(stream);
+      recorder.ondataavailable = event => data.push(event.data);
+      recorder.start();
+    
+      new Promise((resolve, reject) => {
+        recorder.onstop = resolve;
+        recorder.onerror = event => reject(event.name);
+      })
+      .then(function(){
+        recordedBlob = new Blob(data, { type: "video/webm" });
+        recording.src = URL.createObjectURL(recordedBlob);
+      })
+    }
+
+
+    function record(){
+      stopRecordButton.disabled = false;
+      recordButton.disabled = true;
+
+      document.getElementById("msg").innerHTML = "Enregistrement en cours"
+      nav.then(() => startRecording(preview.captureStream()))
+         .catch(log);
+    }
+
+    
+    function stop(){
+      stopRecordButton.disabled = true;
+      recordButton.disabled = false;
+
+      document.getElementById("prev").style.display = "none";
+      document.getElementById("rec").style.display = "block";
+      document.getElementById("msg").innerHTML = ""
+
+      recorder.stop()
+    }
+
+
+    function startWebcam(){
+      recordButton.disabled = false;
+      startWebcamButton.disabled = true;
+      stopWebcamButton.disabled = false;
+
+      var constraints = {
+        video: {
+          //frameRate: { min:20, ideal:20, max:25 },
+          width: { min: 640, ideal: 960, max: 960},
+          height: { min: 480, ideal: 720, max: 720}
+        },
+        audio: true
+      };
+
+      nav = navigator.mediaDevices.getUserMedia(constraints).then(stream => {
+        preview.srcObject = stream;
+        preview.captureStream = preview.captureStream || preview.mozCaptureStream;
+        stream.getTracks().forEach(function(track) {
+          console.log(track.getSettings());
+        })
+        return new Promise(resolve => preview.onplaying = resolve);
+      })
+    }
+
+
+    function rejouer(){
+      document.getElementById("prev").style.display = "block";
+      document.getElementById("rec").style.display = "none";
+      stopRecordButton.disabled = true;
+      recordButton.disabled = false;
+    }
+
+
+    function stopWebcam(){
+      preview.srcObject.getTracks().forEach(track => track.stop());
+      document.getElementById("prev").style.display = "block";
+      document.getElementById("rec").style.display = "none";
+      startWebcamButton.disabled = false;
+      stopWebcamButton.disabled = true;
+      recordButton.disabled = true;
+      document.getElementById("msg").innerHTML = "";
+      data = [];
+    }
+
+  </script>
+
+</body>
+</html>
